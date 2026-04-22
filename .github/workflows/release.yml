@@ -1,0 +1,28 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          body: |
+            Apostol CSMS OAuth2 SPA sources (Vue 3 + Vite).
+
+            Brand deployments clone this repo at the matching tag and build
+            the image locally via `docker compose build`, passing
+            brand-specific `VITE_*` build args (API host, OAuth2 client,
+            branding, Google OAuth).
+
+            Upstream: apostoldevel/module-AuthServer (the C++ module that
+            backs the same OAuth2 flow on the backend side).
