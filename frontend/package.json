@@ -13,6 +13,8 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@noble/ed25519": "^2.3.0",
+    "@noble/hashes": "^1.8.0",
     "vue": "^3.5.30",
     "vue-i18n": "^11.3.0",
     "vue-router": "^5.0.3"
@@ -20,6 +22,7 @@
   "devDependencies": {
     "@vitejs/plugin-vue": "^6.0.5",
     "sass": "^1.98.0",
+    "tsx": "^4.21.0",
     "typescript": "^5.9.3",
     "vite": "^8.0.0"
   }
