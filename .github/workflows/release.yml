@@ -4,25 +4,73 @@ on:
   push:
     tags: ['v*']
 
+# Phase 10 — csms-auth (Vue 3 OAuth2 SPA) ships as a brand-agnostic
+# public image.  Runtime brand identity comes from the license.json-driven
+# attestation chain (Phase 8 — main.ts loads /platform-pubkey.pem +
+# fetches /api/v1/session/init); legacy VITE_* build-args are kept on the
+# Dockerfile only for backwards compat with v0.9.x brand-side builds, and
+# default to empty here.
+
 jobs:
-  release:
+  build-and-push:
     runs-on: ubuntu-latest
     permissions:
+      packages: write
       contents: write
     steps:
       - uses: actions/checkout@v4
 
-      - uses: softprops/action-gh-release@v2
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Derive image tags
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/apostol-csms/csms-auth
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable=${{ !contains(github.ref_name, '-') }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push image (brand-agnostic — Phase 8 runtime attestation)
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Prune old package versions (keep 5 latest)
+        uses: actions/delete-package-versions@v5
+        continue-on-error: true
+        with:
+          package-name: csms-auth
+          package-type: container
+          min-versions-to-keep: 5
+          delete-only-untagged-versions: false
+
+      - name: Publish GitHub Release notes
+        uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
           prerelease: ${{ contains(github.ref_name, '-') }}
           body: |
-            Apostol CSMS OAuth2 SPA sources (Vue 3 + Vite).
+            Apostol CSMS OAuth2 SPA — `csms-auth` public image.
 
-            Brand deployments clone this repo at the matching tag and build
-            the image locally via `docker compose build`, passing
-            brand-specific `VITE_*` build args (API host, OAuth2 client,
-            branding, Google OAuth).
+            Pull: `docker pull ghcr.io/apostol-csms/csms-auth:${{ github.ref_name }}`
 
-            Upstream: apostoldevel/module-AuthServer (the C++ module that
-            backs the same OAuth2 flow on the backend side).
+            Brand identity (logo, name, theme, OAuth2 client_id / scope) is
+            delivered at runtime via the license attestation chain — see
+            Phase 8 of the public-frontend-images plan.  Legacy `VITE_*`
+            build-args remain on the Dockerfile for backwards compat with
+            v0.9.x brand-side builds; they default to empty in this image.
