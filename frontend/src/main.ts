@@ -7,11 +7,11 @@ import { router } from './router'
 import { i18n } from './i18n'
 
 import {
-  fetchAndVerify,
+  fetchAndVerifyManifest,
   parsePubkeyPem,
   AttestationError,
 } from './utils/attestation'
-import type { VerifiedBrand } from './utils/attestation-types'
+import type { VerifiedBrand } from './utils/types'
 import { BrandKey } from './composables/useBrand'
 
 async function loadPlatformPubkey(): Promise<Uint8Array> {
@@ -69,7 +69,7 @@ async function bootstrap(): Promise<void> {
   let brand: VerifiedBrand
   try {
     const platformPubkey = await loadPlatformPubkey()
-    brand = await fetchAndVerify({ apiHost: '', platformPubkey })
+    brand = await fetchAndVerifyManifest({ apiHost: '', platformPubkey })
   } catch (e) {
     const ae = e as AttestationError
     renderAttestationError(ae.category ?? 'unknown', ae.message ?? 'attestation failed')

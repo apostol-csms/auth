@@ -1,6 +1,6 @@
 import { inject, provide, type InjectionKey } from 'vue'
 
-import type { VerifiedBrand } from '../utils/attestation-types'
+import type { VerifiedBrand } from '../utils/types'
 
 /**
  * Attestation-verified brand. Provided once by main.ts after
