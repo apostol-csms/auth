@@ -40,6 +40,31 @@ function renderAttestationError(category: string, message: string): void {
   console.warn('[attestation] refused:', category, message)
 }
 
+// Push verified brand into <head>: document.title + <link rel=icon>. Same
+// pattern as webapp AttestationGate.tsx (favicon swap) — keeps the auth
+// page in sync with what useBrand() shows.
+function applyBrandToHead(brand: VerifiedBrand): void {
+  if (typeof document === 'undefined') return
+  if (brand.name) {
+    document.title = brand.name
+  }
+  if (brand.favicon_url) {
+    const links = document.querySelectorAll<HTMLLinkElement>(
+      'link[rel="icon"], link[rel="shortcut icon"]',
+    )
+    if (links.length > 0) {
+      links.forEach((l) => {
+        l.href = brand.favicon_url
+      })
+    } else {
+      const link = document.createElement('link')
+      link.rel = 'icon'
+      link.href = brand.favicon_url
+      document.head.appendChild(link)
+    }
+  }
+}
+
 async function bootstrap(): Promise<void> {
   let brand: VerifiedBrand
   try {
@@ -50,6 +75,8 @@ async function bootstrap(): Promise<void> {
     renderAttestationError(ae.category ?? 'unknown', ae.message ?? 'attestation failed')
     return
   }
+
+  applyBrandToHead(brand)
 
   const app = createApp(App)
   app.provide(BrandKey, brand)
