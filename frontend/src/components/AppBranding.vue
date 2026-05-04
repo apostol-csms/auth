@@ -14,23 +14,21 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useBrandOptional } from '@/composables/useBrand'
-import { config } from '@/config'
 
-// Brand from manifest (provided by main.ts after fetchAndVerify). Fall back
-// to build-time config only when manifest path failed and bootstrap rendered
-// us anyway — production should never see this fallback.
+// Brand from manifest (provided by main.ts after fetchAndVerifyManifest).
+// If the inject is missing — bootstrap failed and renderAttestationError
+// already replaced #app, so we render here means manifest succeeded.
 //
-// Three-tier fallback for the logo: dark variant (auth has dark background),
-// light variant, then text-only (no <img>). For the title: brand.name from
-// manifest first, config.appTitle as last resort.
+// Logo: prefer dark variant (auth has dark background), fall back to light,
+// then no <img>. Title: brand.name; never fall back to a brand-shaped
+// constant (no hardcoded "ChargeMeCar" / "Apostol" leak).
 const brand = useBrandOptional()
 
-const logoUrl = computed<string | null>(() => {
-  if (brand) return brand.logo_dark_url || brand.logo_url || null
-  return config.appLogo || null
-})
+const logoUrl = computed<string | null>(
+  () => brand?.logo_dark_url || brand?.logo_url || null,
+)
 
-const title = computed<string>(() => brand?.name || config.appTitle || '')
+const title = computed<string>(() => brand?.name || '')
 
 // If <img> fails to load (404, CORS, malformed URL), hide it gracefully
 // and keep just the title — broken-image icon is worse than no icon at all.
