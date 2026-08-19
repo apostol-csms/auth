@@ -8,7 +8,12 @@
 # branding args. See the `build.args:` block in the brand's
 # docker-compose.yaml.
 #
-FROM node:22-alpine AS builder
+# Base images come from Docker Hub by default — exactly as before. Passing
+# --build-arg REGISTRY=<host>/base redirects every FROM below to a mirror, which
+# is what the Russian build contour does: it must reach no registry abroad.
+ARG REGISTRY=docker.io/library
+
+FROM ${REGISTRY}/node:22-alpine AS builder
 
 ARG VITE_API_HOST=
 ARG VITE_CLIENT_ID=
@@ -34,7 +39,7 @@ RUN npm run build
 
 # ─────────────────────────────────────────────────────────────
 
-FROM nginx:stable-alpine AS app
+FROM ${REGISTRY}/nginx:stable-alpine AS app
 
 COPY --from=builder /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
