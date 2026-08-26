@@ -17,6 +17,36 @@ import { config } from '@/config'
 const { t } = useI18n()
 defineProps<{ loading?: boolean }>()
 
+// CSRF state for the external sign-in (RFC 6749 §10.12). The value goes to the
+// provider as ?state= and into a __Host- cookie the backend reads back on return
+// (AuthServer, do_get action "code"): a page on another origin can neither read
+// our cookie to forge a matching state nor plant one under the __Host- prefix.
+//
+// The literal that used to stand here ("debug") was what an unchecked server
+// accepted; the check is real now and compares the two halves. Shape kept
+// identical to the module's own ProviderButton.vue, which this screen converges
+// with later — a divergence in attributes would be invisible until a real
+// sign-in failed.
+//
+// SameSite=Lax, not Strict: the return from the provider is a top-level
+// cross-site navigation, which a Strict cookie would not accompany — every real
+// sign-in would then fail the check. __Host- still requires Secure and Path=/,
+// which the login screen is served under.
+function mintState(): string {
+  const state =
+    typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : Array.from(crypto.getRandomValues(new Uint8Array(16)))
+          .map((b) => b.toString(16).padStart(2, '0'))
+          .join('')
+
+  // 30 minutes, not a session: a first sign-in through a provider can include
+  // registering an account on the provider's side, and the state must still be
+  // here when the user finally returns.
+  document.cookie = `__Host-OAuthState=${state}; Path=/; Secure; SameSite=Lax; Max-Age=1800`
+  return state
+}
+
 function googleLogin() {
   const params = new URLSearchParams({
     client_id: config.googleClientId,
@@ -26,7 +56,7 @@ function googleLogin() {
     access_type: 'online',
     include_granted_scopes: 'true',
     prompt: 'select_account',
-    state: 'debug',
+    state: mintState(),
   })
   window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params}`
 }
