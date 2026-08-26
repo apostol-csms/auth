@@ -11,7 +11,10 @@
     "email": "E-Mail oder Benutzername",
     "password": "Passwort",
     "submit": "Anmelden",
-    "google": "Mit Google anmelden",
+    "withProvider": "Mit {name} anmelden",
+    "providers": {
+      "yandex": "Yandex"
+    },
     "noAccount": "Noch kein Konto?",
     "register": "Konto erstellen",
     "forgot": "Passwort vergessen?",

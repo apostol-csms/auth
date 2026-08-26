@@ -10,11 +10,14 @@
 //              for /oauth2/authorize bootstrap. Could move into manifest's
 //              `oauth.client_id` once /authorize flow consumes useBrand;
 //              tracked separately.
-// - googleClientId — Google OAuth2 client_id for the «Login with Google»
-//              button. Same migration target as above.
+//
+// googleClientId is gone: the sign-in providers now arrive from the backend
+// (GET /oauth2/providers) with their own client_id, so nothing about a provider
+// is baked into this bundle any more. VITE_GOOGLE_CLIENT_ID in the Dockerfile
+// and in the brands' build args is dead with it — removing it there is a
+// separate, deploy-side change.
 export const config = {
   apiHost: import.meta.env.VITE_API_HOST || '',
   clientId: import.meta.env.VITE_CLIENT_ID || '',
   scope: import.meta.env.VITE_SCOPE || '',
-  googleClientId: import.meta.env.VITE_GOOGLE_CLIENT_ID || '',
 } as const

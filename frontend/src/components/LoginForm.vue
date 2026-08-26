@@ -35,9 +35,16 @@
       {{ loading ? t('common.loading') : t('login.submit') }}
     </button>
 
-    <div class="divider">{{ t('common.or') }}</div>
+    <template v-if="providers.length">
+      <div class="divider">{{ t('common.or') }}</div>
 
-    <GoogleButton :loading="loading" />
+      <ProviderButton
+        v-for="p in providers"
+        :key="p.provider"
+        :provider="p"
+        :loading="loading"
+      />
+    </template>
 
     <div class="auth-footer">
       <router-link to="/recover">{{ t('login.forgot') }}</router-link>
@@ -51,16 +58,24 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuth } from '@/composables/useAuth'
-import GoogleButton from './GoogleButton.vue'
+import { useProviders } from '@/composables/useProviders'
+import ProviderButton from './ProviderButton.vue'
 
 const { t } = useI18n()
 const router = useRouter()
 const route = useRoute()
 const { signIn, checkIdentifier, loading } = useAuth()
+
+// External sign-in providers, fetched from the backend. Empty until loaded and
+// empty when none are configured — the divider and buttons stay hidden in both
+// cases (v-if on providers.length), so the password form is never crowded by an
+// "or" rule with nothing under it.
+const { providers, load: loadProviders } = useProviders()
+onMounted(loadProviders)
 
 const form = reactive({ username: '', password: '' })
 const errors = reactive({ username: '', password: '', general: '' })
