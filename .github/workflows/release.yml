@@ -50,14 +50,47 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Prune old package versions (keep 5 latest)
-        uses: actions/delete-package-versions@v5
+      # T551: keep the last KEEP_RELEASES releases pullable in full. GHCR lists an
+      # image index (tagged X.Y.Z) and its untagged platform and attestation
+      # manifests as separate versions, so a plain version count cut the
+      # previous release's amd64 manifest. Children are kept by the digests the
+      # kept indexes reference; a failed inspect stops the step before deleting.
+      - name: Prune old releases (keep last 3 in full)
         continue-on-error: true
-        with:
-          package-name: csms-auth
-          package-type: container
-          min-versions-to-keep: 5
-          delete-only-untagged-versions: false
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OWNER: ${{ github.repository_owner }}
+          PKG: csms-auth
+          KEEP_RELEASES: 3
+        run: |
+          set -euo pipefail
+          api="/orgs/$OWNER/packages/container/$PKG/versions"
+          gh api --paginate "$api?per_page=100" \
+            --jq '.[] | {id, digest: .name, created: .created_at, tags: .metadata.container.tags}' | jq -s . > versions.json
+          # Releases — versions tagged X.Y.Z, highest version first; keep KEEP_RELEASES of them.
+          jq --argjson k "$KEEP_RELEASES" '[.[] | (.tags | map(select(test("^[0-9]+\\.[0-9]+\\.[0-9]+$"))) | first) as $v
+            | select($v) | . + {v: ($v | split(".") | map(tonumber))}] | sort_by(.v) | reverse | .[:$k]' versions.json > releases.json
+          [ "$(jq length releases.json)" -gt 0 ] || { echo "no X.Y.Z releases in $PKG, nothing pruned"; exit 0; }
+          echo "keep releases: $(jq -r '[.[].tags | join(",")] | join("  ")' releases.json)"
+          cutoff=$(jq -r 'map(.created) | min' releases.json)
+          # Tagged versions not older than the oldest kept release stay too (pre-releases, floating tags);
+          # so does anything pushed in the last hour — the children of a build still in flight have no tag yet.
+          jq -r '.[].digest' releases.json > keep.txt
+          jq -r --arg c "$cutoff" --arg h "$(date -u -d '1 hour ago' +%Y-%m-%dT%H:%M:%SZ)" \
+            '.[] | select(((.tags | length) > 0 and .created >= $c) or .created >= $h) | .digest' versions.json >> keep.txt
+          # A release is its index plus the platform and attestation manifests it references.
+          for d in $(cat keep.txt); do
+            docker buildx imagetools inspect --raw "ghcr.io/$OWNER/$PKG@$d" | jq -r '.manifests[]?.digest'
+          done >> keep.txt
+          jq -r --rawfile keep keep.txt '($keep | split("\n")) as $k | .[] | select(.digest as $d | $k | index($d) | not)
+            | [.id, .digest[7:19], .created, (.tags | join(","))] | @tsv' versions.json > delete.tsv
+          echo "versions: $(jq length versions.json), keep: $(sort -u keep.txt | grep -c .), delete: $(grep -c . delete.tsv || true)"
+          rc=0
+          while IFS=$'\t' read -r id digest created tags; do
+            echo "delete $id $digest $created ${tags:-untagged}"
+            gh api -X DELETE "$api/$id" --silent || { echo "::warning::cannot delete $PKG version $id"; rc=1; }
+          done < delete.tsv
+          exit $rc
 
       - name: Publish GitHub Release notes
         uses: softprops/action-gh-release@v2
